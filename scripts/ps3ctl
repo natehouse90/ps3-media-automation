@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+case "${1-}" in
+  net-refresh) exec python3 "${PS3_AUTOMATION_DIR:-$SCRIPT_DIR}/ps3-refresh.py" --scan-only ;;
+  net-refresh-xmb) exec python3 "${PS3_AUTOMATION_DIR:-$SCRIPT_DIR}/ps3-refresh.py" --xmb ;;
+  *) echo "usage: ps3ctl net-refresh | net-refresh-xmb" >&2; exit 2 ;;
+esac

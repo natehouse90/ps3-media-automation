@@ -1,0 +1,33 @@
+# Secrets and local configuration
+secrets/
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pfx
+*.token
+
+# Private operational material and media
+backups/
+recovery-archive/
+*.iso
+*.ISO
+*.pkg
+*.PKG
+*.bin
+*.cue
+*.ird
+logs/
+*.log
+audit-output/
+incoming/
+quarantine/
+
+# Python and local tooling
+__pycache__/
+*.pyc
+.venv/
+dist/
+build/
+.pytest_cache/
