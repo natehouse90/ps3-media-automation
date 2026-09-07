@@ -12,7 +12,7 @@ cp examples/.env.example .env
 docker compose up -d --build
 ```
 
-Open `http://SERVER-IP:8787` and complete the wizard. The image runs as an unprivileged user. Mount `/opt/ps3-tools` read-only and place the separately installed, checksum-verified pinned `makeps3iso` binary there.
+Open `http://SERVER-IP:8787` and complete the wizard. The image runs the application as an unprivileged user. Its small root entrypoint only prepares ownership for incoming, state, work, IRD, audit, and PS3ISO directories; it does not recursively chown or alter published library contents. Mount `/opt/ps3-tools` read-only and place the separately installed, checksum-verified pinned `makeps3iso` binary there.
 
 ```sh
 docker compose ps
