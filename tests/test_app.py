@@ -10,6 +10,7 @@ from app.config import Settings
 from app.db import Database
 from app.doctor import run as doctor
 from app.worker import Worker
+from app.storage import configured_storage_usages, human_size
 
 
 def main() -> int:
@@ -32,6 +33,9 @@ def main() -> int:
         (source / "PS3_GAME" / "PARAM.SFO").write_bytes(b"fixture")
         assert worker.ps3_folder(source) == source and worker.stable(source)
         assert any(item["name"] == "incoming" for item in doctor(settings))
+        usages = configured_storage_usages(settings)
+        assert len(usages) == 1 and set(usages[0].labels) == {"Incoming", "Work", "PS3ISO"}
+        assert human_size(2 * 1024**4) == "2.0 TiB"
         print("app tests: PASS")
         return 0
     finally:

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 import socket
 import hashlib
 import urllib.error
@@ -9,6 +8,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from .config import Settings
+from .storage import configured_storage_usages, human_size
 
 
 @dataclass
@@ -70,6 +70,21 @@ def run(settings: Settings) -> list[dict[str, str]]:
     if settings.makeps3iso.is_file():
         digest = hashlib.sha256(settings.makeps3iso.read_bytes()).hexdigest()
         checks.append(Check("makeps3iso checksum", "PASS" if digest == "c36fe8e6daf9c3ca3d617f79dc524a595aae4f178e52b314937f2fce5a9f48e4" else "FAIL", digest, "Install the pinned ps3iso-utils builder and verify its documented SHA-256."))
-    usage = shutil.disk_usage(settings.work_root if settings.work_root.exists() else settings.state_root)
-    checks.append(Check("free space", "PASS" if usage.free > 5 * 1024**3 else "WARNING", f"{usage.free / 1024**3:.1f} GiB free", "Provide more working storage before reconstructing large titles."))
+    storage = configured_storage_usages(settings)
+    if storage:
+        for usage in storage:
+            labels = ", ".join(usage.labels)
+            checks.append(Check(
+                f"free space ({labels})",
+                "PASS" if usage.free > 5 * 1024**3 else "WARNING",
+                f"{human_size(usage.free)} free of {human_size(usage.total)} at {usage.path}",
+                "Provide more working storage before reconstructing large titles.",
+            ))
+    else:
+        checks.append(Check(
+            "free space",
+            "WARNING",
+            "No configured PS3 storage path is visible",
+            "Mount the PS3 storage filesystem and configure PS3_CAPACITY_PATHS.",
+        ))
     return [asdict(item) for item in checks]

@@ -14,6 +14,8 @@ import os
 import re
 import subprocess
 import sys
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from typing import Any
 
@@ -55,6 +57,28 @@ def api_key() -> str:
 
 
 def search(term: str, indexer_id: int, category: int | None, limit: int) -> list[dict[str, Any]]:
+    if not PROWLARR_CONTAINER.strip():
+        params = {
+            "query": term, "indexerIds": str(indexer_id), "type": "search",
+            "limit": str(limit), "offset": "0",
+        }
+        if category is not None:
+            params["categories"] = str(category)
+        request = urllib.request.Request(
+            PROWLARR_URL + ("&" if "?" in PROWLARR_URL else "?") + urllib.parse.urlencode(params),
+            headers={"X-Api-Key": api_key()},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:
+                payload = json.load(response)
+        except Exception as exc:
+            raise RuntimeError(f"Prowlarr search failed for indexer {indexer_id}") from exc
+        if isinstance(payload, dict):
+            payload = payload.get("results", payload.get("data", []))
+        if not isinstance(payload, list):
+            raise RuntimeError(f"unexpected Prowlarr result shape for indexer {indexer_id}")
+        return [x for x in payload if isinstance(x, dict)]
+
     # curl runs inside media-prowlarr so both API access and indexer traffic use
     # the existing Prowlarr/Gluetun path.
     args = docker_prefix() + [

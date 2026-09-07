@@ -1,4 +1,4 @@
-# PS3 Media Automation v0.2.0
+# PS3 Media Automation v0.2.3
 
 Safe PS3 library ingest, IRD validation, ISO reconstruction, ps3netsrv/webMAN automation, and multi-indexer search tooling.
 
@@ -18,7 +18,7 @@ Open `http://SERVER-IP:8787` and complete the first-run setup wizard. The applic
 
 ## v0.2 application
 
-The browser application provides Dashboard, Library, Incoming/Jobs, Search, IRDs, Doctor, Settings, and Logs/Audits. A background worker watches incoming content, waits for stable files, persists job state in SQLite, and routes PS3 folders through the existing fail-closed engine. States include `PROCESSING`, `READY`, `NEEDS ATTENTION`, `WAITING FOR IRD`, `FAILED`, and `WAITING FOR PS3 IDLE`.
+The browser Home page combines the daily workflow: PS3 search, active SAB PS3 downloads and ingest stages, then the ready ISO library. Administration remains on focused Jobs, IRDs, Doctor, Settings, and Logs pages. A background worker watches incoming content, waits for stable files, persists job state in SQLite, and routes PS3 folders through the existing fail-closed engine.
 
 It is intentionally small and server-rendered. It never exposes credentials, auto-grabs search results, auto-launches games, reboots a PS3, or interrupts active gameplay. See [`docs/application.md`](docs/application.md) and [`docs/installation.md`](docs/installation.md).
 
@@ -33,6 +33,7 @@ It is intentionally small and server-rendered. It never exposes credentials, aut
 - Read-only-library-friendly ps3netsrv publication.
 - webMAN scan and relay-enforced, gameplay-safe XMB refresh with pending refresh handling.
 - `ps3-search`, which sends a category-filtered query to a capable indexer and a category-less query to a broader indexer, then merges and deduplicates results. It never grabs a release.
+- Read-only SAB PS3 queue monitoring with progress, speed, and ETA on Home.
 
 ## Requirements
 
@@ -40,7 +41,7 @@ It is intentionally small and server-rendered. It never exposes credentials, aut
 - Sufficient storage for a separate reconstruction work tree and final ISO; large games may require tens of gigabytes.
 - `makeps3iso` from a trusted, pinned `ps3iso-utils` release.
 - A trusted IRD for each title that must be validated. IRDs are not included in this repository.
-- Docker and a Prowlarr container only if using `ps3-search` with the default executor.
+- Prowlarr if using search; direct HTTP and existing-container execution are both supported.
 - ps3netsrv configured to expose the published library, preferably with the library bind mounted read-only in the server container.
 - webMAN MOD on the PS3 and a Cobra-capable environment where NETISO mounting is used.
 - A management relay for safe XMB reloads. The relay must determine whether a game is running and return HTTP 202 with `action=xmb-refresh-pending` instead of interrupting gameplay.
@@ -87,9 +88,11 @@ See [`examples/.env.example`](examples/.env.example). The important settings are
 - `PS3_STATE_ROOT`, `PS3_IRD_ROOT`, and `PS3_ISO_ROOT`: audit/IRD/final ISO locations.
 - `PS3_MAKEPS3ISO`: absolute path to the pinned trusted builder.
 - `PS3_REFRESH_RELAY_URL`, `PS3_REFRESH_RELAY_TOKEN_FILE`, and `PS3_REFRESH_PENDING_FILE`: safe refresh integration. Never place the token in a repository file.
-- `PROWLARR_SEARCH_URL`, `PROWLARR_CONTAINER`, and `PROWLARR_API_KEY`: Prowlarr API access. The key may instead be read from the container's config when the environment value is omitted.
+- `PROWLARR_SEARCH_URL`, `PROWLARR_CONTAINER`, and `PROWLARR_API_KEY`: Prowlarr API access. Leave the container value empty for direct HTTP. `PROWLARR_PUBLIC_URL` is the browser-reachable Prowlarr address used by result actions.
 - `PROWLARR_PS3_INDEXER_ID` and `PROWLARR_PS3_CATEGORY`: indexer and category that actually advertise PS3, normally category 1080.
 - `PROWLARR_NOCATEGORY_INDEXER_ID`: indexer that should receive the same query without categories.
+- `SAB_URL`, `SAB_API_KEY`, and `SAB_CATEGORY`: optional read-only queue monitoring. The API key is sent in a POST body and never rendered.
+- `PS3_CAPACITY_PATHS`: labeled configured storage paths used for filesystem capacity instead of container-overlay capacity.
 
 Use generic IDs and names for other compatible indexers; do not assume every provider exposes the same raw category IDs.
 
@@ -119,7 +122,7 @@ ps3-search "search terms" --limit 25
 ps3-search "search terms" --json
 ```
 
-One invocation performs two Prowlarr API searches. The configured PS3-capable indexer receives category `1080`; the configured fallback indexer receives no category filter. Returned objects retain title, indexer, age/date, size, categories, GUID, and other Prowlarr fields. Human output marks the source indexer, while `--json` retains the complete result objects. Obvious duplicates are removed by normalized title plus size. This command is search-only and never calls a grab/download endpoint.
+One invocation performs two Prowlarr API searches. The configured PS3-capable indexer receives category `1080`; the configured fallback indexer receives no category filter. Returned objects retain title, indexer, age/date, size, categories, GUID, and other Prowlarr fields. Human output marks the source indexer, while `--json` retains the complete result objects. Obvious duplicates are removed by normalized title plus size. This command is search-only and never calls a grab/download endpoint. The Home action opens a scoped search in Prowlarr so the user remains in control of its configured download-client routing.
 
 ## webMAN and ps3netsrv
 
@@ -145,7 +148,7 @@ Configure webMAN MOD with NET0 pointing to ps3netsrv and expose the final `PS3IS
 
 ## Prowlarr search setup
 
-Set `PROWLARR_URL` and `PROWLARR_API_KEY` or enter them in Setup. Configure the existing `ps3-search` variables for one indexer advertising Console/PS3 `1080` and one compatible category-less fallback. The UI and CLI merge/dedupe search results and never grab them.
+Set `PROWLARR_URL` and `PROWLARR_API_KEY` or enter them in Setup. Configure the existing `ps3-search` variables for one indexer advertising Console/PS3 `1080` and one compatible category-less fallback. Set `PROWLARR_PUBLIC_URL` to the address browsers can open. The UI and CLI merge/dedupe search results; selecting **Open in Prowlarr** does not grab automatically.
 
 ## CLI for advanced users
 
