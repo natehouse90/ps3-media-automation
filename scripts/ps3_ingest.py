@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import argparse
-import fcntl
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - CLI locking is a Linux deployment feature
+    fcntl = None
 import gzip
 import hashlib
 import json

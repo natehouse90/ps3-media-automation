@@ -12,7 +12,7 @@ from pathlib import Path
 
 MODULE = Path("/usr/local/sbin/ps3-ingest")
 if not MODULE.exists():
-    MODULE = Path(__file__).with_name("ps3_ingest.py")
+    MODULE = Path(__file__).parents[1] / "scripts" / "ps3_ingest.py"
 spec = importlib.util.spec_from_loader("ps3_ingest", SourceFileLoader("ps3_ingest", str(MODULE)))
 ingest = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = ingest

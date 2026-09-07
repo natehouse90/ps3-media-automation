@@ -1,0 +1,11 @@
+.git
+.env
+runtime-library
+runtime-tools
+tests
+*.iso
+*.ISO
+*.ird
+*.IRD
+logs
+audit-output

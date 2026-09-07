@@ -1,8 +1,26 @@
-# PS3 Media Automation
+# PS3 Media Automation v0.2.0
 
 Safe PS3 library ingest, IRD validation, ISO reconstruction, ps3netsrv/webMAN automation, and multi-indexer search tooling.
 
 This open-source toolkit is for owners of legally obtained PS3 content who want to validate folder-format sources, repair only provable filename damage, build verified PS3 ISOs, publish them to a ps3netsrv library, and refresh webMAN safely. It also provides a search-only helper for indexers whose category capabilities differ.
+
+## Quick start
+
+```sh
+git clone https://github.com/YOUR-ACCOUNT/ps3-media-automation.git
+cd ps3-media-automation
+cp examples/.env.example .env
+# Edit .env with your own paths and optional endpoints.
+docker compose up -d --build
+```
+
+Open `http://SERVER-IP:8787` and complete the first-run setup wizard. The application does not bundle game content, IRDs, firmware, Prowlarr, or a PS3; supply those separately and legally.
+
+## v0.2 application
+
+The browser application provides Dashboard, Library, Incoming/Jobs, Search, IRDs, Doctor, Settings, and Logs/Audits. A background worker watches incoming content, waits for stable files, persists job state in SQLite, and routes PS3 folders through the existing fail-closed engine. States include `PROCESSING`, `READY`, `NEEDS ATTENTION`, `WAITING FOR IRD`, `FAILED`, and `WAITING FOR PS3 IDLE`.
+
+It is intentionally small and server-rendered. It never exposes credentials, auto-grabs search results, auto-launches games, reboots a PS3, or interrupts active gameplay. See [`docs/application.md`](docs/application.md) and [`docs/installation.md`](docs/installation.md).
 
 ## Features
 
@@ -109,6 +127,30 @@ Point ps3netsrv at the library root and expose it to the PS3 as NET0. Mount the 
 
 `ps3ctl net-refresh` requests a scan only. `ps3ctl net-refresh-xmb` delegates the scan and XMB reload to the configured management relay. The relay must check PS3 state first: an idle XMB may be reloaded, but an active game must produce a pending response. The client records that pending state and does not reboot, stop a game, change security settings, or call a play endpoint.
 
+## Setup wizard and Doctor
+
+On first launch the browser redirects to Setup. Enter storage paths, the PS3 host, optional ps3netsrv and Prowlarr endpoints, and save. The wizard creates permitted directories and redirects to Doctor. Doctor reports PASS, WARNING, or FAIL with a plain-language fix. Missing external services are warnings/failures, not crashes.
+
+## Directory layout and first game
+
+The configured incoming directory is writable staging. `.iso-build-work` is persistent scratch space, `.ingest/irds` holds user-supplied IRDs and audits, and `PS3ISO` is the final read-only-facing library. Copy a legally obtained, complete folder source into incoming and wait for the job to reach READY. Review its audit, then mount the published ISO from Library and press X on the PS3; no automatic launch occurs.
+
+## IRD setup
+
+Use the IRDs page to upload a trusted `.ird`, or place one in the configured IRD directory. The matching TITLE_ID is discovered during preflight. An absent or contradictory IRD leaves the job in `WAITING FOR IRD`/`NEEDS ATTENTION`; the project never fabricates missing retail content and never redistributes IRDs.
+
+## PS3/webMAN and ps3netsrv setup
+
+Configure webMAN MOD with NET0 pointing to ps3netsrv and expose the final `PS3ISO` directory read-only to ps3netsrv. Set `PS3_IP`, `PS3NETSRV_HOST`, and port in the wizard. Use the optional relay in `scripts/ps3-refresh-relay.py` when a protected management endpoint is needed. Its explicit allow-list, token, positive idle marker, scan, and reload sequence preserves active gameplay.
+
+## Prowlarr search setup
+
+Set `PROWLARR_URL` and `PROWLARR_API_KEY` or enter them in Setup. Configure the existing `ps3-search` variables for one indexer advertising Console/PS3 `1080` and one compatible category-less fallback. The UI and CLI merge/dedupe search results and never grab them.
+
+## CLI for advanced users
+
+The browser is optional. `ps3-ingest --check`, `ps3-ingest`, `ps3-import-incoming`, `ps3-search`, `ps3-refresh`, and `ps3ctl` remain available for operators and troubleshooting. They use the same environment-driven paths as the worker.
+
 ## Pipeline
 
 ```mermaid
@@ -145,6 +187,8 @@ This project does not provide game files, ISOs, IRDs, firmware, or instructions 
 
 Inputs are immutable. Reconstruction occurs in a separate work tree. Only unique IRD-proven changes are applied, and all unresolved or ambiguous content fails closed. Temporary output is validated before atomic publication. Refresh automation never interrupts gameplay for an XMB reload.
 
+Do not expose port 8787 directly to the public Internet. Bind it to a trusted LAN or place it behind an authenticated reverse proxy/VPN. The setup wizard is intended for first-run administration, and the Prowlarr key stays server-side.
+
 ## Contributing
 
 Run the focused tests before submitting changes, keep examples sanitized, and never add real credentials, media, IRDs, logs, backups, or private infrastructure details. Please open an issue before large behavioral changes.
@@ -152,3 +196,11 @@ Run the focused tests before submitting changes, keep examples sanitized, and ne
 ## License
 
 MIT; see [`LICENSE`](LICENSE).
+
+## Backup, upgrade, and restore
+
+Back up the application state volume, IRD/audit directory, and library metadata before upgrading. Stop Compose, copy those directories to protected storage, pull the new source, rebuild, and start it again. Restore by stopping the app, replacing only verified state/library data, and starting the same version first. Never restore secrets into a public repository or replace an existing ISO without a validation record.
+
+## Versioning
+
+The source version is recorded in [`VERSION`](VERSION). v0.2 adds the browser application and Docker packaging while preserving the advanced CLI tools.

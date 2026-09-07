@@ -1,0 +1,31 @@
+services:
+  ps3-media-automation:
+    build: .
+    container_name: ps3-media-automation
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    env_file:
+      - .env
+    environment:
+      APP_STATE_ROOT: /var/lib/ps3-media-automation
+      PS3_LIBRARY_ROOT: /srv/ps3-library
+      PS3_INCOMING_DIR: /srv/ps3-library/incoming
+      PS3_WORK_ROOT: /srv/ps3-library/.iso-build-work
+      PS3_IRD_ROOT: /srv/ps3-library/.ingest/irds
+      PS3_ISO_ROOT: /srv/ps3-library/PS3ISO
+      PS3_AUDIT_ROOT: /srv/ps3-library/.ingest/audits
+      PS3_INGEST_COMMAND: /opt/ps3-media-automation/scripts/ps3_ingest.py
+      PS3_IRD_PARSER_ROOT: /opt/ps3-tools/pyird
+    volumes:
+      - app-state:/var/lib/ps3-media-automation
+      - ${PS3_HOST_LIBRARY_ROOT:-./runtime-library}:/srv/ps3-library
+      - ${PS3_HOST_TOOLS_ROOT:-./runtime-tools}:/opt/ps3-tools:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/healthz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  app-state:

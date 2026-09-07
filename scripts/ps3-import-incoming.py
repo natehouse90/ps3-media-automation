@@ -357,11 +357,12 @@ def import_one(source: Path, logger: logging.Logger, dry_run: bool) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--source", help="process one incoming file or directory")
     args = parser.parse_args()
     INCOMING.mkdir(parents=True, exist_ok=True)
     logger = setup_logging()
     retry_pending(logger, args.dry_run)
-    sources = sorted(p for p in INCOMING.iterdir() if not p.name.startswith(".") and p.name != ".ps3-import-work")
+    sources = [Path(args.source)] if args.source else sorted(p for p in INCOMING.iterdir() if not p.name.startswith(".") and p.name != ".ps3-import-work")
     imported = 0
     for source in sources:
         imported += int(import_one(source, logger, args.dry_run))
