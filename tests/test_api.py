@@ -23,7 +23,7 @@ def main() -> int:
                 {"title": "Fallback Result", "indexer": "Fallback indexer", "indexerId": 2, "size": 2048, "age": 2, "categories": [], "ps3SearchCategory": None},
             ],
         }
-        main_app.sab_queue = lambda: {"available": True, "status": "Downloading", "jobs": [{"id": "x", "title": "Active Game", "progress": 42, "speed": "5 MB/s", "eta": "00:10:00"}]}
+        main_app.sab_queue = lambda _db=None: {"available": True, "status": "Downloading", "jobs": [{"id": "x", "title": "Active Game", "progress": 42, "speed": "5 MB/s", "eta": "00:10:00"}]}
         job_id = main_app.db.add_job(str(main_app.settings.incoming_dir / "Active Game"), "active", "PS3_FOLDER")
         main_app.db.update_job(job_id, state="AUDITING", stage="audit running")
         app = main_app.app
@@ -36,11 +36,14 @@ def main() -> int:
             assert "VALIDATING" in text and "5 MB/s" in text and "00:10:00" in text
             assert text.count("Active Game") == 1
             assert "Example Game" in text and "Open in Prowlarr" in text
-            assert "indexerIds=1" in text and "categories=1080" in text
+            assert "indexer_id=1" in text and "category=1080" in text
             fallback = text[text.index("Fallback Result"):]
-            assert "indexerIds=2" in fallback and "categories=1080" not in fallback.split("</tr>", 1)[0]
+            assert "indexer_id=2" in fallback and "category=1080" not in fallback.split("</tr>", 1)[0]
             assert client.get("/search", follow_redirects=False).status_code == 307
             assert client.get("/library", follow_redirects=False).status_code == 307
+            handoff = client.get("/search/handoff?title=Handed%20Off%20PS3&indexer=Example&guid=g1&result_id=r1&indexer_id=1&category=1080", follow_redirects=False)
+            assert handoff.status_code == 303 and "http://example.invalid:9696/search" in handoff.headers["location"]
+            assert main_app.db.pending_ps3_handoffs()[0]["normalized"] == "handed off ps3"
             assert client.post("/search").status_code == 405
             assert client.get("/setup").status_code == 200
             assert client.get("/api/doctor").status_code == 200

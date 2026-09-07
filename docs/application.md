@@ -8,6 +8,6 @@ The setup wizard writes non-secret configuration and creates required directorie
 
 Home presents Search first, active PS3 downloads/processing second, and the ready Library third. SAB monitoring is read-only and shows progress, speed, and ETA for the configured PS3 category. Durable ingest jobs continue the same visible title through validation/build states; completed titles appear in Ready Library.
 
-Search calls the existing `ps3-search` helper and retains category 1080 versus category-less fallback. A result action opens a scoped search in Prowlarr; the application does not call its grab endpoint or alter SAB routing. Mount actions require an explicitly configured safe URL template; automatic game launching is never implemented.
+Search calls the existing `ps3-search` helper and retains category 1080 versus category-less fallback. A result action records a short-lived exact-title PS3 handoff, then opens a scoped search in Prowlarr; if the resulting queue item matches exactly, only that SAB job is assigned category `ps3` through SAB's normal API. The application does not grab automatically or alter global routing. Mount actions require an explicitly configured safe URL template; automatic game launching is never implemented.
 
 Refresh remains relay-based when configured. The relay owns PS3 idle detection and safe XMB reload; HTTP 202 is treated as pending and never interrupts gameplay.

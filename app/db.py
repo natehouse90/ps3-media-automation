@@ -36,6 +36,11 @@ class Database:
             );
             CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, level TEXT, message TEXT, created_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS ps3_handoffs (
+              id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, indexer TEXT,
+              guid TEXT, result_id TEXT, normalized TEXT NOT NULL, created_at TEXT NOT NULL,
+              status TEXT NOT NULL DEFAULT 'PENDING', matched_nzo_id TEXT
+            );
             """)
 
     def add_job(self, source: str, fingerprint: str, source_type: str) -> int | None:
@@ -70,3 +75,23 @@ class Database:
     def events(self, limit: int = 50) -> list[dict[str, Any]]:
         with self.connect() as conn:
             return [dict(row) for row in conn.execute("SELECT * FROM events ORDER BY id DESC LIMIT ?", (limit,))]
+
+    def add_ps3_handoff(self, title: str, normalized: str, indexer: str = "", guid: str = "", result_id: str = "") -> int:
+        stamp = now()
+        with self.connect() as conn:
+            cur = conn.execute(
+                "INSERT INTO ps3_handoffs(title,indexer,guid,result_id,normalized,created_at) VALUES(?,?,?,?,?,?)",
+                (title, indexer, guid, result_id, normalized, stamp),
+            )
+            return int(cur.lastrowid)
+
+    def pending_ps3_handoffs(self, limit: int = 100) -> list[dict[str, Any]]:
+        with self.connect() as conn:
+            return [dict(row) for row in conn.execute(
+                "SELECT * FROM ps3_handoffs WHERE status='PENDING' AND created_at >= datetime('now','-2 days') ORDER BY id DESC LIMIT ?",
+                (limit,),
+            )]
+
+    def match_ps3_handoff(self, handoff_id: int, nzo_id: str) -> None:
+        with self.connect() as conn:
+            conn.execute("UPDATE ps3_handoffs SET status='MATCHED', matched_nzo_id=? WHERE id=?", (nzo_id, handoff_id))

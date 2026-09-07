@@ -13,6 +13,8 @@ Copy `examples/.env.example` to `.env`. The application reads environment defaul
 - `PS3_CAPACITY_PATHS`: comma-separated `Label=/path` values used for true storage capacity; paths on one filesystem are shown once.
 - `PS3_METADATA_ROOT`: location of `known-isos.json` used to label verified library entries.
 - `PS3_MOUNT_URL_TEMPLATE`: optional operator-supplied safe mount URL containing `{path}`. When absent, Home clearly disables Mount.
+
+When a user opens a result from Home, the application stores a two-day, exact normalized-title handoff in SQLite. A matching SAB queue item is the only item eligible for per-job `ps3` categorization; unrelated jobs are ignored.
 - `WORKER_INTERVAL_SECONDS` and `INGEST_STABLE_SECONDS`: polling and completion-stability controls.
 
 The published library should be mounted read-only in ps3netsrv. Only incoming, state/work, and the automation's PS3ISO publication path need write access.

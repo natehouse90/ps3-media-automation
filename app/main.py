@@ -19,7 +19,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from .config import Settings
 from .db import Database
 from .doctor import run as doctor_run
-from .monitor import sab_queue
+from .monitor import normalized_title, sab_queue
 from .storage import configured_storage_usages, human_size
 from .worker import Worker
 
@@ -140,7 +140,7 @@ STATE_LABELS = {
 
 
 def processing_items() -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    sab = sab_queue()
+    sab = sab_queue(db)
     combined: dict[str, dict[str, Any]] = {}
     for slot in sab.get("jobs", []):
         key = item_key(str(slot.get("title", "")))
@@ -201,6 +201,15 @@ def prowlarr_result_url(item: dict[str, Any]) -> str:
     return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, "/search", urllib.parse.urlencode(query), ""))
 
 
+def handoff_url(item: dict[str, Any]) -> str:
+    values = {"title": str(item.get("title") or ""), "indexer": str(item.get("indexer") or item.get("indexerName") or ""), "guid": str(item.get("guid") or ""), "result_id": str(item.get("id") or "")}
+    if item.get("indexerId") is not None:
+        values["indexer_id"] = str(item["indexerId"])
+    if item.get("ps3SearchCategory") is not None:
+        values["category"] = str(item["ps3SearchCategory"])
+    return "/search/handoff?" + urllib.parse.urlencode(values)
+
+
 def search_panel(q: str, limit: int) -> str:
     body = f"<section class='card' id='search'><div class='section-head'><h2>Search</h2><span class='muted'>Search only — nothing downloads automatically</span></div><form class='search-form' method='get' action='/'><input name='q' placeholder='Search PS3 releases' value='{esc(q)}' autofocus><input name='limit' type='number' min='1' max='100' value='{limit}'><button>Search</button></form>"
     if not q:
@@ -216,7 +225,7 @@ def search_panel(q: str, limit: int) -> str:
             age = item.get("age")
             date = str(item.get("publishDate") or item.get("releaseDate") or "")[:10]
             when = f"{age}d" if age not in (None, "") else date or "—"
-            url = prowlarr_result_url(item)
+            url = handoff_url(item) if prowlarr_result_url(item) else ""
             action = f"<a class='button' target='_blank' rel='noopener' href='{esc(url)}'>Open in Prowlarr</a>" if url else "<span class='button disabled'>Action unavailable</span>"
             rows += f"<tr><td class='title'>{esc(item.get('title'))}</td><td>{esc(item.get('indexer') or item.get('indexerName'))}</td><td>{esc(size)}</td><td>{esc(when)}</td><td>{esc(categories_text(item))}</td><td class='actions'>{action}</td></tr>"
         body += f"<div class='section-head'><div class='counts'><span class='badge'>{len(results)} merged results</span>{badges}</div></div><div class='table-wrap'><table><tr><th>Title</th><th>Indexer</th><th>Size</th><th>Age/date</th><th>Category</th><th>Action</th></tr>{rows}</table></div>" if rows else "<div class='empty'>No results.</div>"
@@ -277,6 +286,24 @@ def home(q: str = "", limit: int = 25) -> Any:
 def legacy_search(q: str = "", limit: int = 25) -> RedirectResponse:
     query = urllib.parse.urlencode({"q": q, "limit": limit}) if q else ""
     return RedirectResponse("/" + ("?" + query if query else "") + "#search", status_code=307)
+
+
+@app.get("/search/handoff")
+def search_handoff(title: str, indexer: str = "", guid: str = "", result_id: str = "", indexer_id: str = "", category: str = "") -> RedirectResponse:
+    normalized = normalized_title(title)
+    if normalized:
+        db.add_ps3_handoff(title, normalized, indexer, guid, result_id)
+    base = os.environ.get("PROWLARR_PUBLIC_URL", "").strip() or settings.prowlarr_url
+    parsed = urllib.parse.urlsplit(base)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.username or parsed.password:
+        return RedirectResponse("/#search", status_code=303)
+    query = {"query": title}
+    if indexer_id:
+        query["indexerIds"] = indexer_id
+    if category:
+        query["categories"] = category
+    target = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, "/search", urllib.parse.urlencode(query), ""))
+    return RedirectResponse(target, status_code=303)
 
 
 @app.get("/library")

@@ -1,4 +1,4 @@
-# PS3 Media Automation v0.2.3
+# PS3 Media Automation v0.2.4
 
 Safe PS3 library ingest, IRD validation, ISO reconstruction, ps3netsrv/webMAN automation, and multi-indexer search tooling.
 
@@ -34,6 +34,7 @@ It is intentionally small and server-rendered. It never exposes credentials, aut
 - webMAN scan and relay-enforced, gameplay-safe XMB refresh with pending refresh handling.
 - `ps3-search`, which sends a category-filtered query to a capable indexer and a category-less query to a broader indexer, then merges and deduplicates results. It never grabs a release.
 - Read-only SAB PS3 queue monitoring with progress, speed, and ETA on Home.
+- Exact-title PS3 handoff tracking assigns `ps3` only to the matched SAB queue job; unrelated categories and global defaults are untouched.
 
 ## Requirements
 
